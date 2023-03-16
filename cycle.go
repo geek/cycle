@@ -14,35 +14,64 @@ func New(r *mux.Router) *Cycle {
 	return c
 }
 
+type HandlerFunc func(w http.ResponseWriter, r *http.Request) (*http.Request, error)
+
 type Cycle struct {
 	r          *mux.Router
-	onRequest  []http.HandlerFunc
-	onPreAuth  []http.HandlerFunc
-	onAuth     []http.HandlerFunc
-	onPostAuth []http.HandlerFunc
-	onValidate []http.HandlerFunc
+	onRequest  []HandlerFunc
+	onPreAuth  []HandlerFunc
+	onAuth     []HandlerFunc
+	onPostAuth []HandlerFunc
+	onValidate []HandlerFunc
+}
+
+func (c *Cycle) handleError(w http.ResponseWriter, r *http.Request, err error) {
+	// TODO: use boom to write error
 }
 
 func (c *Cycle) middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+
 		for _, onRequest := range c.onRequest {
-			onRequest(w, r)
+			r, err = onRequest(w, r)
+			if err != nil {
+				c.handleError(w, r, err)
+				return
+			}
+
 		}
 
 		for _, onPreAuth := range c.onPreAuth {
-			onPreAuth(w, r)
+			r, err = onPreAuth(w, r)
+			if err != nil {
+				c.handleError(w, r, err)
+				return
+			}
 		}
 
 		for _, onAuth := range c.onAuth {
-			onAuth(w, r)
+			r, err = onAuth(w, r)
+			if err != nil {
+				c.handleError(w, r, err)
+				return
+			}
 		}
 
 		for _, onPostAuth := range c.onPostAuth {
-			onPostAuth(w, r)
+			r, err = onPostAuth(w, r)
+			if err != nil {
+				c.handleError(w, r, err)
+				return
+			}
 		}
 
 		for _, onValidate := range c.onValidate {
-			onValidate(w, r)
+			r, err = onValidate(w, r)
+			if err != nil {
+				c.handleError(w, r, err)
+				return
+			}
 		}
 
 		h.ServeHTTP(w, r)
@@ -59,22 +88,22 @@ func (c *Cycle) notFoundHandler() http.Handler {
 	})
 }
 
-func (c *Cycle) OnRequest(h http.HandlerFunc) {
+func (c *Cycle) OnRequest(h HandlerFunc) {
 	c.onRequest = append(c.onRequest, h)
 }
 
-func (c *Cycle) OnPreAuth(h http.HandlerFunc) {
+func (c *Cycle) OnPreAuth(h HandlerFunc) {
 	c.onPreAuth = append(c.onPreAuth, h)
 }
 
-func (c *Cycle) OnAuth(h http.HandlerFunc) {
+func (c *Cycle) OnAuth(h HandlerFunc) {
 	c.onAuth = append(c.onAuth, h)
 }
 
-func (c *Cycle) OnPostAuth(h http.HandlerFunc) {
+func (c *Cycle) OnPostAuth(h HandlerFunc) {
 	c.onPostAuth = append(c.onPostAuth, h)
 }
 
-func (c *Cycle) OnValidate(h http.HandlerFunc) {
+func (c *Cycle) OnValidate(h HandlerFunc) {
 	c.onValidate = append(c.onValidate, h)
 }
