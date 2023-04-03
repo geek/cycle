@@ -3,6 +3,7 @@ package cycle
 import (
 	"net/http"
 
+	"github.com/geek/herrors"
 	"github.com/gorilla/mux"
 )
 
@@ -26,7 +27,7 @@ type Cycle struct {
 }
 
 func (c *Cycle) handleError(w http.ResponseWriter, r *http.Request, err error) {
-	// TODO: use boom to write error
+	herrors.Write(w, err)
 }
 
 func (c *Cycle) middleware(h http.Handler) http.Handler {

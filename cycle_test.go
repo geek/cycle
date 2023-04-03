@@ -2,11 +2,13 @@ package cycle_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/geek/cycle"
+	"github.com/geek/herrors"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
@@ -122,4 +124,54 @@ func TestAuthIsPopulatedForHandler(t *testing.T) {
 	r.ServeHTTP(rw, req)
 
 	assert.Equal(t, 200, rw.Result().StatusCode)
+}
+
+func TestHTTPError(t *testing.T) {
+	r := mux.NewRouter()
+
+	called := 0
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		called++
+	}
+
+	r.HandleFunc("/", handler).Methods("GET")
+
+	c := cycle.New(r)
+
+	c.OnRequest(func(w http.ResponseWriter, r *http.Request) (*http.Request, error) {
+		return nil, herrors.ErrBadRequest
+	})
+
+	rw := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	defer req.Body.Close()
+	r.ServeHTTP(rw, req)
+
+	assert.Equal(t, 0, called)
+	assert.Equal(t, 400, rw.Result().StatusCode)
+}
+
+func TestUnkownError(t *testing.T) {
+	r := mux.NewRouter()
+
+	called := 0
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		called++
+	}
+
+	r.HandleFunc("/", handler).Methods("GET")
+
+	c := cycle.New(r)
+
+	c.OnRequest(func(w http.ResponseWriter, r *http.Request) (*http.Request, error) {
+		return nil, errors.New("my error")
+	})
+
+	rw := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	defer req.Body.Close()
+	r.ServeHTTP(rw, req)
+
+	assert.Equal(t, 0, called)
+	assert.Equal(t, 500, rw.Result().StatusCode)
 }
